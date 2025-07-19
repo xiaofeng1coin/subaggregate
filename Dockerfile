@@ -4,18 +4,17 @@
 FROM python:3.11-slim-bookworm as builder
 WORKDIR /app
 RUN pip install --upgrade pip
+# 复制你的 requirements.txt 文件 (请确保里面没有 gunicorn)
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---- STAGE 2: Final Image (最终运行环境) ----
 FROM python:3.11-slim-bookworm
 
-# ----------------- 关键修改点：设置时区 -----------------
-# 设置时区环境变量，很多程序会直接使用这个变量
+# ----------------- 时区设置 (保持不变) -----------------
+# 设置时区环境变量
 ENV TZ=Asia/Shanghai
-
 # 更新apt-get源，安装时区数据包，并配置系统时区
-# 这样做能确保容器内的所有进程（包括系统命令如`date`）都使用北京时间
 RUN set -x \
     && apt-get update \
     && apt-get install -y --no-install-recommends tzdata \
@@ -27,22 +26,32 @@ RUN set -x \
 
 WORKDIR /app
 
-# 从 builder 阶段复制依赖和代码
+# 从 builder 阶段复制已经安装好的依赖
 COPY --from=builder /install /usr/local
+# 复制你项目中的所有代码 (包括 app.py, static/, templates/)
 COPY . .
 
-# 暴露端口
+# 暴露 Flask 应用运行的端口
 EXPOSE 5000
 
-# 设置环境变量
+# 设置环境变量，确保 Python 日志直接输出
 ENV PYTHONUNBUFFERED=1
 
-# 容器启动时运行的命令 (包含日志配置)
-CMD ["/usr/local/bin/gunicorn", \
-     "--workers", "2", \
-     "--bind", "0.0.0.0:5000", \
-     "--log-level", "info", \
-     "--log-file", "-", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-", \
-     "app:app"]
+# ======================= 【【【 核心修改点 】】】 =======================
+#
+# CMD ["/usr/local/bin/gunicorn", \   <-- 删除这部分
+#      "--workers", "2", \
+#      "--bind", "0.0.0.0:5000", \
+#      "--log-level", "info", \
+#      "--log-file", "-", \
+#      "--access-logfile", "-", \
+#      "--error-logfile", "-", \
+#      "app:app"]
+#
+# 替换为下面的命令：
+# 直接使用'python'命令来启动'app.py'。
+# Flask的app.run(host='0.0.0.0', port=5000)会处理监听地址和端口。
+# 日志会因为 PYTHONUNBUFFERED=1 而直接输出到 stdout/stderr，被Docker捕获。
+#
+CMD ["python", "app.py"]
+# ====================================================================
