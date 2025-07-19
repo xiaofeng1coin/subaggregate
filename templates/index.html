@@ -444,26 +444,60 @@
         });
 
         const copyBtn = document.getElementById('copyBtn');
-        copyBtn.addEventListener('click', function () {
-            const urlInput = document.getElementById('aggregatedUrl');
-            navigator.clipboard.writeText(urlInput.value).then(() => {
-                showToast('聚合地址已复制到剪贴板', 'success');
-                const iconContainer = document.getElementById('copy-icon-container');
-                const originalIcon = iconContainer.innerHTML;
-                const textSpan = document.getElementById('copy-text');
-                const originalText = textSpan.textContent;
-                iconContainer.innerHTML = '<i class="fa-solid fa-check"></i>';
-                textSpan.textContent = '已复制!';
-                copyBtn.classList.add('btn-primary');
-                copyBtn.classList.remove('btn-outline');
-                setTimeout(() => {
-                    iconContainer.innerHTML = originalIcon;
-                    textSpan.textContent = originalText;
-                    copyBtn.classList.remove('btn-primary');
-                    copyBtn.classList.add('btn-outline');
-                }, 2000);
-            }).catch(err => showToast('复制失败', 'error'));
+copyBtn.addEventListener('click', function () {
+    const urlInput = document.getElementById('aggregatedUrl');
+    const urlToCopy = urlInput.value;
+
+    // 优先使用现代、安全的 Clipboard API
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(urlToCopy).then(() => {
+            showToast('聚合地址已复制到剪贴板', 'success');
+            updateCopyButtonFeedback();
+        }).catch(err => {
+            showToast('复制失败: ' + err, 'error');
         });
+    } else {
+        // 如果 Clipboard API 不可用（例如在不安全的 HTTP 环境中）
+        // 则回退到旧的、已废弃的 document.execCommand 方法
+        try {
+            urlInput.select(); // 必须先选中 input 中的文本
+            urlInput.setSelectionRange(0, 99999); // 兼容移动设备
+            document.execCommand('copy');
+            
+            showToast('已复制到剪贴板 (兼容模式)', 'success');
+            updateCopyButtonFeedback();
+            
+            // 取消选中文本，避免页面上有蓝色选中区域
+            window.getSelection().removeAllRanges(); 
+
+        } catch (err) {
+            showToast('复制失败，请手动复制', 'error');
+            // 如果连旧方法都失败了，可以弹窗提示用户手动复制
+            alert('无法自动复制，请手动选择并复制以下链接:\n' + urlToCopy);
+        }
+    }
+});
+
+// 将改变按钮外观的逻辑提取成一个函数，方便复用
+function updateCopyButtonFeedback() {
+    const iconContainer = document.getElementById('copy-icon-container');
+    const originalIcon = iconContainer.innerHTML;
+    const textSpan = document.getElementById('copy-text');
+    const originalText = textSpan.textContent;
+    
+    iconContainer.innerHTML = '<i class="fa-solid fa-check"></i>';
+    textSpan.textContent = '已复制!';
+    copyBtn.classList.add('btn-primary');
+    copyBtn.classList.remove('btn-outline');
+    
+    setTimeout(() => {
+        iconContainer.innerHTML = originalIcon;
+        textSpan.textContent = originalText;
+        copyBtn.classList.remove('btn-primary');
+        copyBtn.classList.add('btn-outline');
+    }, 2000);
+}
+
 
         function showToast(message, type = 'success') {
             const toastContainer = document.getElementById('toast-container');
