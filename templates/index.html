@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sub Aggregator</title>
+    <!-- 引入外部字体和图标库 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- 引入我们自己的CSS文件 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- 动态背景的画布 -->
+    <canvas id="particle-canvas"></canvas>
+
+    <div class="container">
+        <header>
+            <h1>Sub Aggregator</h1>
+            <p>聚合、筛选、一键生成</p>
+        </header>
+
+        <section class="card" style="animation-delay: 0.1s;">
+            <div class="card-header"><i class="fa-solid fa-link"></i> 聚合订阅地址</div>
+            <p style="color: var(--text-color-secondary); margin-bottom: 1rem; font-size: 0.9em;">
+                此地址始终有效。下方任何配置（包括过滤）保存后，该地址内容将自动更新。
+            </p>
+            <div class="input-group">
+                <input type="text" id="aggregatedUrl" class="form-control" value="{{ request.host_url.replace('http://', 'https://') }}aggregate/clash.yaml" readonly>
+                <button class="btn btn-outline" type="button" id="copyBtn">
+                    <span id="copy-icon-container"><i class="fa-regular fa-copy"></i></span>
+                    <span id="copy-text">复制</span>
+                </button>
+            </div>
+        </section>
+
+        <div class="main-layout">
+            <main class="main-content">
+
+                <div class="card" style="animation-delay: 0.15s;">
+                    <div class="card-header">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span>管理订阅列表</span>
+                    </div>
+                    <div id="sub-list-container">
+                        <div class="sub-list-header" style="display: flex; padding: 0 1rem 0.5rem; color: var(--text-color-secondary); font-size: 0.9em;">
+                            <div class="checkbox-col" style="display: flex; align-items: center;">
+                                 <input type="checkbox" id="checkAll" onchange="toggleAll(this.checked)">
+                                 <label for="checkAll" class="custom-checkbox"></label>
+                            </div>
+                            <div class="name-col">订阅名称</div>
+                            <div class="url-col">订阅地址</div>
+                            <div class="actions-col" style="justify-content: center;">操作</div>
+                        </div>
+                        <div id="sub-list">
+                            <div style="text-align: center; padding: 2rem; color: var(--text-color-secondary);">
+                                <div class="spinner" style="border-top-color: var(--primary-color);"></div>
+                                <span style="margin-left: 1rem;">正在加载订阅...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.5rem;">
+                        <button id="saveAggregationBtn" class="btn btn-primary">
+                            <span class="btn-text">
+                                <i class="fa-regular fa-floppy-disk"></i>
+                                <span>保存聚合选择</span>
+                            </span>
+                            <div class="spinner" style="display: none;"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card" style="animation-delay: 0.2s;">
+                    <div class="card-header with-toggle">
+                        <div><i class="fa-solid fa-globe"></i> 全局节点过滤</div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="globalFilterEnabled">
+                            <label for="globalFilterEnabled" class="slider"></label>
+                        </div>
+                    </div>
+                     <p style="color: var(--text-color-secondary); margin-bottom: 1rem; font-size: 0.9em;">
+                        在此处设置的关键词将应用于所有启用订阅合并后的最终节点列表。多个关键词请用逗号、空格或换行分隔。
+                    </p>
+                    <div class="form-group">
+                         <textarea id="globalFilterKeywords" class="form-control" rows="2" placeholder="例如：过期, V2, 流量不足"></textarea>
+                    </div>
+                    <button id="saveGlobalFilterBtn" class="btn btn-primary">
+                        <span class="btn-text"><i class="fa-solid fa-check"></i> 保存全局过滤器</span>
+                        <div class="spinner" style="display: none;"></div>
+                    </button>
+                </div>
+
+            </main>
+
+            <aside class="sidebar">
+                <div class="card" style="animation-delay: 0.3s; position: sticky; top: 2rem;">
+                    <div class="card-header"><i class="fa-solid fa-plus-circle"></i> 添加新订阅</div>
+                    <form id="add-form">
+                        <div class="form-group">
+                            <label for="subName">订阅名称</label>
+                            <input type="text" class="form-control" id="subName" name="name" placeholder="例如：我的主力机场" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="subUrl">订阅地址</label>
+                            <input type="url" class="form-control" id="subUrl" name="url" placeholder="https://..." required>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            <span class="btn-text">
+                                <i class="fa-solid fa-circle-plus"></i>
+                                <span>确认添加</span>
+                            </span>
+                             <div class="spinner" style="display: none;"></div>
+                        </button>
+                    </form>
+                </div>
+            </aside>
+        </div>
+
+        <footer>
+            <p>Powered by <a href="https://flask.palletsprojects.com/" target="_blank">Flask</a> & Aurora-UI. Designed with 🌌.</p>
+        </footer>
+    </div>
+
+    <!-- 编辑模态框 -->
+    <div id="editModalBackdrop" class="modal-backdrop"></div>
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h3 class="modal-header">编辑订阅</h3>
+            <form id="edit-form">
+                <input type="hidden" id="editSubId">
+                <div class="form-group">
+                    <label for="editSubName">订阅名称</label>
+                    <input type="text" class="form-control" id="editSubName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editSubUrl">订阅地址</label>
+                    <input type="url" class="form-control" id="editSubUrl" required>
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">取消</button>
+                <button type="button" class="btn btn-primary" id="saveEditBtn">
+                    <span class="btn-text"><i class="fa-solid fa-check"></i> 保存修改</span>
+                    <div class="spinner" style="display: none;"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 过滤模态框 -->
+    <div id="filterModalBackdrop" class="modal-backdrop"></div>
+    <div id="filterModal" class="modal">
+        <div class="modal-content">
+            <div class="card-header with-toggle" style="border-bottom:none; padding-bottom: 0; margin-bottom: 0.5rem;">
+                 <h3 id="filterModalTitle">设置过滤关键词</h3>
+                 <div class="toggle-switch">
+                    <input type="checkbox" id="singleFilterEnabled">
+                    <label for="singleFilterEnabled" class="slider"></label>
+                </div>
+            </div>
+            <p style="color: var(--text-color-secondary); margin-bottom: 1rem; font-size: 0.9em;">
+                启用后，包含以下任意关键词的节点将被从此订阅中排除。
+            </p>
+            <form id="filter-form">
+                <input type="hidden" id="filterSubId">
+                <div class="form-group">
+                    <textarea class="form-control" id="filterKeywords" rows="4" placeholder="例如：失效, 游戏, 广告"></textarea>
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeFilterModal()">取消</button>
+                <button type="button" class="btn btn-primary" id="saveFilterBtn">
+                    <span class="btn-text"><i class="fa-solid fa-check"></i> 保存过滤器</span>
+                    <div class="spinner" style="display: none;"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 吐司通知容器 -->
+    <div id="toast-container"></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- 动态背景逻辑 (无改动) ---
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        let particles = [];
+        const mouse = { x: null, y: null, radius: 100 };
+        window.addEventListener('mousemove', (e) => { mouse.x = e.x; mouse.y = e.y; });
+        window.addEventListener('mouseout', () => { mouse.x = null; mouse.y = null; });
+        window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; initParticles(); });
+        class Particle { constructor(x, y, size, color, weight) { this.x = x; this.y = y; this.size = size; this.color = color; this.weight = weight; this.baseX = this.x; this.baseY = this.y; this.density = (Math.random() * 30) + 1; } draw() { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.closePath(); ctx.fill(); } update() { let dx = mouse.x - this.x; let dy = mouse.y - this.y; let distance = Math.sqrt(dx * dx + dy * dy); let forceDirectionX = dx / distance; let forceDirectionY = dy / distance; let maxDistance = mouse.radius; let force = (maxDistance - distance) / maxDistance; let directionX = forceDirectionX * force * this.density; let directionY = forceDirectionY * force * this.density; if (distance < mouse.radius) { this.x -= directionX; this.y -= directionY; } else { if (this.x !== this.baseX) this.x -= (this.x - this.baseX) / 10; if (this.y !== this.baseY) this.y -= (this.y - this.baseY) / 10; } } }
+        function initParticles() { particles = []; let numberOfParticles = (canvas.height * canvas.width) / 9000; for (let i = 0; i < numberOfParticles; i++) { let size = (Math.random() * 1.5) + 1; let x = Math.random() * canvas.width; let y = Math.random() * canvas.height; let color = 'rgba(255, 255, 255, 0.8)'; let weight = 1; particles.push(new Particle(x, y, size, color, weight)); } }
+        function animate() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.update(); p.draw(); }); connectParticles(); requestAnimationFrame(animate); }
+        function connectParticles() { for (let a = 0; a < particles.length; a++) { for (let b = a; b < particles.length; b++) { let distance = Math.sqrt(Math.pow(particles[a].x - particles[b].x, 2) + Math.pow(particles[a].y - particles[b].y, 2)); if (distance < 90) { let opacityValue = 1 - (distance / 90); ctx.strokeStyle = `rgba(255, 255, 255, ${opacityValue})`; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(particles[a].x, particles[a].y); ctx.lineTo(particles[b].x, particles[b].y); ctx.stroke(); } } } }
+        initParticles();
+        animate();
+
+        // --- 主应用逻辑 ---
+        const api = {
+            async request(method, url, data) {
+                const options = { method, headers: { 'Content-Type': 'application/json' } };
+                if (data) options.body = JSON.stringify(data);
+                const response = await fetch(url, options);
+                let responseData;
+                try {
+                    responseData = await response.json();
+                } catch (e) {
+                    responseData = { message: '服务器响应格式错误' };
+                }
+                if (!response.ok) throw new Error(responseData.message || '请求失败');
+                return responseData;
+            },
+            get(url) { return this.request('GET', url); },
+            post(url, data) { return this.request('POST', url, data); },
+            put(url, data) { return this.request('PUT', url, data); },
+            delete(url) { return this.request('DELETE', url); }
+        };
+
+        let allData = {};
+        const subList = document.getElementById('sub-list');
+        const addForm = document.getElementById('add-form');
+        const globalFilterKeywordsTextarea = document.getElementById('globalFilterKeywords');
+        const globalFilterEnabledCheckbox = document.getElementById('globalFilterEnabled');
+
+        function renderSubscriptions(data) {
+            allData = data;
+            const { subscriptions = [], aggregation_enabled = [], global_filter_keywords = '', global_filter_enabled = false } = data;
+
+            globalFilterKeywordsTextarea.value = global_filter_keywords;
+            globalFilterEnabledCheckbox.checked = global_filter_enabled;
+
+            subList.innerHTML = '';
+
+            if (!subscriptions || subscriptions.length === 0) {
+                subList.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--text-color-secondary);">还没有任何订阅，请在右侧添加一个。</div>`;
+                return;
+            }
+
+            subscriptions.forEach(sub => {
+                const isEnabled = aggregation_enabled.includes(sub.id);
+                const item = document.createElement('div');
+                item.className = 'sub-item';
+                item.dataset.id = sub.id;
+                item.innerHTML = `
+                    <div class="checkbox-col">
+                        <input type="checkbox" class="enabled-sub" id="sub-check-${sub.id}" value="${sub.id}" ${isEnabled ? 'checked' : ''}>
+                        <label for="sub-check-${sub.id}" class="custom-checkbox"></label>
+                    </div>
+                    <div class="name-col">${escapeHTML(sub.name)}</div>
+                    <div class="url-col">${escapeHTML(sub.url)}</div>
+                    <div class="actions-col">
+                        <button class="btn-action filter-btn" title="过滤"><i class="fa-solid fa-filter"></i></button>
+                        <button class="btn-action edit-btn" title="编辑"><i class="fa-solid fa-pencil"></i></button>
+                        <button class="btn-action delete-btn" title="删除"><i class="fa-regular fa-trash-can"></i></button>
+                    </div>`;
+                subList.appendChild(item);
+            });
+        }
+
+        async function loadAndRenderData() {
+            try {
+                const data = await api.get('/api/data');
+                renderSubscriptions(data);
+            } catch (error) {
+                showToast(error.message, 'error');
+                subList.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--danger-color);">数据加载失败，请刷新重试。</div>`;
+            }
+        }
+
+        addForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const btn = this.querySelector('button[type="submit"]');
+            toggleSpinner(btn, true);
+            const name = this.elements.name.value.trim();
+            const url = this.elements.url.value.trim();
+            try {
+                const result = await api.post('/api/subscriptions', { name, url });
+                showToast(result.message, 'success');
+                this.reset();
+                this.elements.name.focus();
+                await loadAndRenderData();
+            } catch (error) {
+                showToast(error.message, 'error');
+            } finally {
+                toggleSpinner(btn, false);
+            }
+        });
+
+        subList.addEventListener('click', function(e) {
+            const targetBtn = e.target.closest('button.btn-action');
+            if (!targetBtn) return;
+
+            const subItem = targetBtn.closest('.sub-item');
+            const subId = subItem.dataset.id;
+            const sub = allData.subscriptions.find(s => s.id === subId);
+            if (!sub) return;
+
+            if (targetBtn.classList.contains('edit-btn')) {
+                openEditModal(sub);
+            } else if (targetBtn.classList.contains('delete-btn')) {
+                if (confirm(`确定要删除订阅 "${sub.name}" 吗？`)) {
+                    deleteSubscription(subId);
+                }
+            } else if (targetBtn.classList.contains('filter-btn')) {
+                openFilterModal(sub);
+            }
+        });
+
+        async function deleteSubscription(id) {
+            try {
+                const result = await api.delete(`/api/subscriptions/${id}`);
+                showToast(result.message, 'success');
+                await loadAndRenderData();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        document.getElementById('saveAggregationBtn').addEventListener('click', async function() {
+            const btn = this;
+            toggleSpinner(btn, true);
+            const enabled_ids = Array.from(document.querySelectorAll('.enabled-sub:checked')).map(cb => cb.value);
+            try {
+                const result = await api.post('/api/aggregation', { enabled_ids });
+                showToast(result.message, 'success');
+            } catch (error) {
+                showToast(error.message, 'error');
+            } finally {
+                toggleSpinner(btn, false);
+            }
+        });
+
+        document.getElementById('saveGlobalFilterBtn').addEventListener('click', async function() {
+           const btn = this;
+           toggleSpinner(btn, true);
+           const keywords = globalFilterKeywordsTextarea.value;
+           const enabled = globalFilterEnabledCheckbox.checked;
+           try {
+               const result = await api.post('/api/global_filter', { keywords, enabled });
+               showToast(result.message, 'success');
+               allData.global_filter_keywords = keywords;
+               allData.global_filter_enabled = enabled;
+           } catch (error) {
+               showToast(error.message, 'error');
+           } finally {
+               toggleSpinner(btn, false);
+           }
+        });
+
+        // Modal Logic & Handlers
+        const editModal = document.getElementById('editModal');
+        const editModalBackdrop = document.getElementById('editModalBackdrop');
+        const editForm = document.getElementById('edit-form');
+        const filterModal = document.getElementById('filterModal');
+        const filterModalBackdrop = document.getElementById('filterModalBackdrop');
+        const filterForm = document.getElementById('filter-form');
+
+        window.openEditModal = (sub) => {
+            editForm.elements.editSubId.value = sub.id;
+            editForm.elements.editSubName.value = sub.name;
+            editForm.elements.editSubUrl.value = sub.url;
+            editModalBackdrop.classList.add('show');
+            editModal.classList.add('show');
+        };
+        window.closeEditModal = () => {
+            editModal.classList.remove('show');
+            editModalBackdrop.classList.remove('show');
+        };
+
+        window.openFilterModal = (sub) => {
+            document.getElementById('filterModalTitle').innerHTML = `为 “${escapeHTML(sub.name)}” 设置过滤器`;
+            filterForm.elements.filterSubId.value = sub.id;
+            document.getElementById('filterKeywords').value = sub.filter_keywords || '';
+            document.getElementById('singleFilterEnabled').checked = sub.filter_enabled || false;
+            filterModalBackdrop.classList.add('show');
+            filterModal.classList.add('show');
+        };
+        window.closeFilterModal = () => {
+            filterModal.classList.remove('show');
+            filterModalBackdrop.classList.remove('show');
+        };
+
+        editModalBackdrop.addEventListener('click', closeEditModal);
+        filterModalBackdrop.addEventListener('click', closeFilterModal);
+
+        document.getElementById('saveEditBtn').addEventListener('click', async function() {
+            const btn = this;
+            toggleSpinner(btn, true);
+            const id = editForm.elements.editSubId.value;
+            const name = editForm.elements.editSubName.value.trim();
+            const url = editForm.elements.editSubUrl.value.trim();
+            const sub = allData.subscriptions.find(s => s.id === id);
+
+            try {
+                // 编辑名称/URL时不改变过滤设置
+                await api.put(`/api/subscriptions/${id}`, {
+                    name,
+                    url,
+                    filter_keywords: sub.filter_keywords,
+                    filter_enabled: sub.filter_enabled
+                });
+                showToast('订阅修改成功', 'success');
+                closeEditModal();
+                await loadAndRenderData();
+            } catch (error) {
+                showToast(error.message, 'error');
+            } finally {
+                toggleSpinner(btn, false);
+            }
+        });
+
+        document.getElementById('saveFilterBtn').addEventListener('click', async function() {
+            const btn = this;
+            toggleSpinner(btn, true);
+            const id = filterForm.elements.filterSubId.value;
+            const keywords = document.getElementById('filterKeywords').value;
+            const enabled = document.getElementById('singleFilterEnabled').checked;
+            const sub = allData.subscriptions.find(s => s.id === id);
+
+            try {
+                 // 保存过滤设置时不改变名称/URL
+                 await api.put(`/api/subscriptions/${id}`, {
+                    name: sub.name,
+                    url: sub.url,
+                    filter_keywords: keywords,
+                    filter_enabled: enabled
+                });
+                 showToast('过滤器保存成功', 'success');
+                 closeFilterModal();
+                 // Update local data immediately
+                 sub.filter_keywords = keywords;
+                 sub.filter_enabled = enabled;
+            } catch (error) {
+                showToast(error.message, 'error');
+            } finally {
+                toggleSpinner(btn, false);
+            }
+        });
+
+        const copyBtn = document.getElementById('copyBtn');
+        copyBtn.addEventListener('click', function () {
+            const urlInput = document.getElementById('aggregatedUrl');
+            navigator.clipboard.writeText(urlInput.value).then(() => {
+                showToast('聚合地址已复制到剪贴板', 'success');
+                const iconContainer = document.getElementById('copy-icon-container');
+                const originalIcon = iconContainer.innerHTML;
+                const textSpan = document.getElementById('copy-text');
+                const originalText = textSpan.textContent;
+                iconContainer.innerHTML = '<i class="fa-solid fa-check"></i>';
+                textSpan.textContent = '已复制!';
+                copyBtn.classList.add('btn-primary');
+                copyBtn.classList.remove('btn-outline');
+                setTimeout(() => {
+                    iconContainer.innerHTML = originalIcon;
+                    textSpan.textContent = originalText;
+                    copyBtn.classList.remove('btn-primary');
+                    copyBtn.classList.add('btn-outline');
+                }, 2000);
+            }).catch(err => showToast('复制失败', 'error'));
+        });
+
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast-notification ${type}`;
+            const iconClass = type === 'success' ? 'fa-circle-check' : 'fa-circle-xmark';
+            toast.innerHTML = `<span class="icon"><i class="fa-solid ${iconClass}"></i></span><span>${escapeHTML(message)}</span>`;
+            toastContainer.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 3000);
+        }
+
+        function escapeHTML(str) { return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'})[m]); }
+
+        function toggleSpinner(button, show) {
+            const textSpan = button.querySelector('.btn-text');
+            const spinnerDiv = button.querySelector('.spinner');
+            if (button) button.disabled = show;
+            if (textSpan) textSpan.style.display = show ? 'none' : 'inline-flex';
+            if (spinnerDiv) spinnerDiv.style.display = show ? 'inline-block' : 'none';
+        }
+
+        window.toggleAll = (checked) => { document.querySelectorAll('.enabled-sub').forEach(checkbox => checkbox.checked = checked); }
+
+        loadAndRenderData();
+    });
+    </script>
+</body>
+</html>

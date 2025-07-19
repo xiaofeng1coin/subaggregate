@@ -1,0 +1,12 @@
+# 文件名: .dockerignore
+.git
+.vscode
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+Dockerfile
+.dockerignore
+docker-compose.yml
+README.md

@@ -1,0 +1,6 @@
+# sub-converter-flask/requirements.txt
+
+Flask
+requests
+PyYAML
+gunicorn
