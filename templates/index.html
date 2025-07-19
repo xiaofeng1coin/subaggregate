@@ -28,7 +28,7 @@
                 此地址始终有效。下方任何配置（包括过滤）保存后，该地址内容将自动更新。
             </p>
             <div class="input-group">
-                <input type="text" id="aggregatedUrl" class="form-control" value="{{ request.host_url.replace('http://', 'https://') }}aggregate/clash.yaml" readonly>
+                <input type="text" id="aggregatedUrl" class="form-control" value="{{ request.host_url }}aggregate/clash.yaml" readonly>
                 <button class="btn btn-outline" type="button" id="copyBtn">
                     <span id="copy-icon-container"><i class="fa-regular fa-copy"></i></span>
                     <span id="copy-text">复制</span>
