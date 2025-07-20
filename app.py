@@ -1,4 +1,4 @@
-# 文件名: app.py (日志增强版)
+# 文件名: app.py (已修改为大小写敏感过滤)
 
 import os
 import json
@@ -14,7 +14,6 @@ import requests
 
 # --- 基础设置 ---
 app = Flask(__name__, static_folder='static', template_folder='templates')
-# 【日志格式不变，但我们会在代码中增加更多日志】
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)-7s | %(message)s',
@@ -27,11 +26,11 @@ CLASH_TEMPLATE_FILE = 'clash_template.yaml'
 
 # =================================================================================
 # 节点解析 (Parsers)
+# ... (此部分无改动) ...
 # =================================================================================
 
 def parse_link(link: str):
     """根据链接协议头调用相应的解析器"""
-    # 【新增日志】记录正在尝试解析的链接类型
     protocol = link.split('://')[0]
     logging.info(f"      解析节点链接: 类型 {protocol.upper()}, 链接: {link[:40]}...")
     
@@ -42,9 +41,7 @@ def parse_link(link: str):
             return _parse_vmess(link)
         if link.startswith('trojan://'):
             return _parse_trojan(link)
-        # 如果有其他协议，在这里添加
     except Exception as e:
-        # 【日志级别调整】将解析失败从 warning 提升为 error，因为它通常意味着一个问题
         logging.error(f"      解析链接失败: {link[:40]}... - 错误: {e}")
     return None
 
@@ -125,6 +122,7 @@ def _parse_trojan(link: str):
 
 # =================================================================================
 # Clash配置生成 (Generator)
+# ... (此部分无改动) ...
 # =================================================================================
 
 def generate_clash_config(proxies: list, template_content: str) -> str:
@@ -172,14 +170,12 @@ def generate_clash_config(proxies: list, template_content: str) -> str:
                 break
         if not matched:
             other_nodes.append(name)
-
-    # 【新增日志】分组完成后的统计报告
+            
     logging.info("    - 分组统计报告:")
     for region, nodes in region_nodes.items():
         if nodes: logging.info(f"      - {region}: {len(nodes)} 个节点")
     if other_nodes:
         logging.warning(f"    - 注意: {len(other_nodes)} 个节点被分入 '🌍 其他地区'。")
-        # 只打印前10个，避免日志过长
         for i, node_name in enumerate(other_nodes[:10]):
             logging.info(f"      - 其他地区节点示例: {node_name}")
         if len(other_nodes) > 10:
@@ -223,24 +219,32 @@ def save_data(data):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
+# --------------------------------------------------------------------------
+#【↓↓↓ 主要修改点在这里 ↓↓↓】
+# --------------------------------------------------------------------------
 def apply_filter(nodes, keywords_str, filter_type):
-    keywords = [kw.strip().lower() for kw in keywords_str.replace('\n', ',').replace(' ', ',').split(',') if kw.strip()]
+    # 【修改1】移除 .lower()，使关键词保持原始大小写
+    keywords = [kw.strip() for kw in keywords_str.replace('\n', ',').replace(' ', ',').split(',') if kw.strip()]
     if not keywords:
         return nodes
     
-    # 【新增日志】打印正在使用的过滤器关键词
-    logging.info(f"    - 执行 {filter_type} 过滤，关键词: {', '.join(keywords)}")
+    logging.info(f"    - 执行 {filter_type} 过滤 (大小写敏感)，关键词: {', '.join(keywords)}")
     
     original_count = len(nodes)
-    filtered_nodes = [node for node in nodes if not any(kw in node.get('name', '').lower() for kw in keywords)]
     
-    # 【新增日志】打印过滤结果
+    # 【修改2】移除 .lower()，使节点名称也保持原始大小写来进行匹配
+    filtered_nodes = [node for node in nodes if not any(kw in node.get('name', '') for kw in keywords)]
+    
     logging.info(f"      过滤效果: {original_count} -> {len(filtered_nodes)} (移除了 {original_count - len(filtered_nodes)} 个节点)")
     
     return filtered_nodes
+# --------------------------------------------------------------------------
+#【↑↑↑ 主要修改点在这里 ↑↑↑】
+# --------------------------------------------------------------------------
 
 # =================================================================================
 # 主路由和聚合逻辑
+# ... (此部分无改动) ...
 # =================================================================================
 
 @app.route('/')
@@ -256,7 +260,6 @@ def aggregate_clash():
     enabled_ids = set(data.get('aggregation_enabled', []))
     subscriptions_to_aggregate = [sub for sub in data.get('subscriptions', []) if sub.get('id') in enabled_ids]
     
-    # 【新增日志】记录启用的订阅数量
     logging.info(f"- 找到 {len(data.get('subscriptions', []))} 个已存订阅，其中 {len(subscriptions_to_aggregate)} 个已启用聚合。")
 
     if not subscriptions_to_aggregate:
@@ -280,19 +283,17 @@ def aggregate_clash():
 
         try:
             sub_response = requests.get(sub_url, timeout=20, headers=headers)
-            sub_response.raise_for_status() # 如果状态码不是2xx，则抛出异常
+            sub_response.raise_for_status() 
             logging.info(f"    - 下载成功 (状态码: {sub_response.status_code})")
             
             raw_content = sub_response.text
             nodes_from_sub = []
             
-            # 尝试解析为Clash配置
             try:
                 clash_config = yaml.safe_load(raw_content)
                 if 'proxies' in clash_config and isinstance(clash_config['proxies'], list):
                     nodes_from_sub = clash_config['proxies']
                     logging.info(f"    - 识别为Clash配置文件格式，成功提取 {len(nodes_from_sub)} 个节点。")
-            # 如果不是Clash配置，则尝试解析为节点列表
             except (yaml.YAMLError, AttributeError, TypeError):
                 logging.info("    - 无法解析为YAML，尝试作为链接列表处理...")
                 try: 
@@ -311,13 +312,11 @@ def aggregate_clash():
                             nodes_from_sub.append(node)
                 logging.info(f"    - 从链接列表成功解析出 {len(nodes_from_sub)} 个节点。")
 
-            # 为节点名称添加前缀
             logging.info(f"    - 为 {len(nodes_from_sub)} 个节点添加前缀 '[{sub_name}]'")
             for node in nodes_from_sub:
                 if 'name' in node and not node['name'].startswith(f"[{sub_name}] "):
                     node['name'] = f"[{sub_name}] " + node['name']
             
-            # 执行订阅内过滤
             if sub_filter_enabled and sub_filter_keywords:
                 nodes_after_sub_filter = apply_filter(nodes_from_sub, sub_filter_keywords, f"订阅内[{sub_name}]")
                 all_nodes.extend(nodes_after_sub_filter)
@@ -335,7 +334,6 @@ def aggregate_clash():
     logging.info(f"- 所有订阅处理完毕，合并后共 {len(all_nodes)} 个节点。")
     final_nodes = all_nodes
     
-    # 执行全局过滤
     global_filter_enabled = data.get('global_filter_enabled', False)
     global_filter_keywords = data.get('global_filter_keywords', '')
     if global_filter_enabled and global_filter_keywords:
@@ -372,7 +370,8 @@ def aggregate_clash():
         return make_response(f"服务器错误: {e}", 500)
 
 # =================================================================================
-# API 路由 (增加日志)
+# API 路由
+# ... (此部分无改动) ...
 # =================================================================================
 
 @app.route('/api/data', methods=['GET'])
@@ -458,3 +457,4 @@ def save_global_filter():
 if __name__ == '__main__':
     logging.info("=" * 20 + " Sub Aggregator 应用启动 " + "=" * 20)
     app.run(host='0.0.0.0', port=5000, debug=False)
+

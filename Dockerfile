@@ -1,26 +1,27 @@
-# 文件名: Dockerfile
+# 文件名: Dockerfile (已修正)
 
 # ---- STAGE 1: Builder (安装依赖) ----
 FROM python:3.11-slim-bookworm as builder
 WORKDIR /app
 RUN pip install --upgrade pip
-# 复制你的 requirements.txt 文件 (请确保里面没有 gunicorn)
+# 复制你的 requirements.txt 文件
 COPY requirements.txt .
+# 将依赖安装到一个特定目录，方便下一阶段复制
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---- STAGE 2: Final Image (最终运行环境) ----
 FROM python:3.11-slim-bookworm
 
-# ----------------- 时区设置 (保持不变) -----------------
+# ----------------- 时区设置 (修正版) -----------------
 # 设置时区环境变量
 ENV TZ=Asia/Shanghai
 # 更新apt-get源，安装时区数据包，并配置系统时区
+# 注意：我们保留 tzdata 包，不再将其卸载，以确保时区数据可用
 RUN set -x \
     && apt-get update \
     && apt-get install -y --no-install-recommends tzdata \
     && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone \
-    && apt-get purge -y --auto-remove tzdata \
     && rm -rf /var/lib/apt/lists/*
 # --------------------------------------------------------
 
@@ -37,21 +38,6 @@ EXPOSE 5000
 # 设置环境变量，确保 Python 日志直接输出
 ENV PYTHONUNBUFFERED=1
 
-# ======================= 【【【 核心修改点 】】】 =======================
-#
-# CMD ["/usr/local/bin/gunicorn", \   <-- 删除这部分
-#      "--workers", "2", \
-#      "--bind", "0.0.0.0:5000", \
-#      "--log-level", "info", \
-#      "--log-file", "-", \
-#      "--access-logfile", "-", \
-#      "--error-logfile", "-", \
-#      "app:app"]
-#
-# 替换为下面的命令：
-# 直接使用'python'命令来启动'app.py'。
-# Flask的app.run(host='0.0.0.0', port=5000)会处理监听地址和端口。
-# 日志会因为 PYTHONUNBUFFERED=1 而直接输出到 stdout/stderr，被Docker捕获。
-#
+# 使用 'python' 命令来直接启动 'app.py'。
+# Flask内建的服务器将处理请求，日志会直接输出到容器标准输出。
 CMD ["python", "app.py"]
-# ====================================================================
