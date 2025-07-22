@@ -1,0 +1,110 @@
+<!-- 文件名: templates/mobile.html (已修改) -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sub Aggregator (Mobile)</title>
+    <!-- 移除了外部字体和图标库的链接，实现纯本地化，加速加载 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+</head>
+<body class="mobile-view">
+    <div id="aurora-background"></div>
+
+    <div class="container-mobile">
+        <header class="page-header">
+            <h1>Sub Aggregator | 智能筛选</h1>
+            <div class="page-subtitle">
+                  <span class="line-1">汇集所有节点，过滤一切干扰，</span>
+                  <span class="line-2">最终交付一个永远纯净的订阅链接。</span>
+             </div>
+        </header>
+
+        <section class="card">
+            <!-- fa-link 是自定义的本地图标 -->
+            <h2 class="card-header"><i class="fa-solid fa-link"></i> 聚合订阅地址</h2>
+            <div class="input-group">
+                <input type="text" id="aggregatedUrl" class="form-control" value="{{ request.host_url }}aggregate/clash.yaml" readonly>
+                <button class="btn btn-primary" type="button" id="copyBtn" aria-label="复制聚合地址">
+                    <!-- fa-copy 和 fa-check 是自定义的本地图标 -->
+                    <span class="icon-copy"><i class="fa-regular fa-copy"></i></span>
+                    <span class="icon-check" style="display: none;"><i class="fa-solid fa-check"></i></span>
+                </button>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-header-flex">
+                 <!-- fa-list-check 是自定义的本地图标 -->
+                <h2 class="card-header"><i class="fa-solid fa-list-check"></i> 管理订阅列表</h2>
+                <div class="custom-checkbox-container">
+                     <input type="checkbox" id="checkAll" class="custom-checkbox-input">
+                     <label for="checkAll" class="check-all-label">全选</label>
+                </div>
+            </div>
+            <div id="sub-list">
+                <div class="loading-state"><div class="spinner"></div></div>
+            </div>
+            <div class="card-footer">
+                <button id="saveAggregationBtn" class="btn btn-primary">
+                    <!-- fa-floppy-disk 是自定义的本地图标 -->
+                    <i class="fa-regular fa-floppy-disk"></i>
+                    <span>保存聚合选择</span>
+                </button>
+            </div>
+        </section>
+
+        <details class="card">
+            <summary class="card-header">
+                <div>
+                   <!-- fa-globe 是自定义的本地图标 -->
+                   <i class="fa-solid fa-filter"></i>
+                   <span>全局节点过滤</span>
+                </div>
+            </summary>
+            <div class="details-content">
+                <div class="toggle-switch-wrapper" style="margin-bottom:1rem;">
+                    <label for="globalFilterEnabled">启用全局过滤</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="globalFilterEnabled">
+                        <label for="globalFilterEnabled" class="slider"></label>
+                    </div>
+                </div>
+                <textarea id="globalFilterKeywords" class="form-control" rows="4" placeholder="使用空格、逗号或换行分隔要排除的关键词"></textarea>
+                <div class="card-footer">
+                    <button id="saveGlobalFilterBtn" class="btn btn-primary">
+                        <span>保存全局设置</span>
+                    </button>
+                </div>
+            </div>
+        </details>
+    </div>
+
+    <!-- 悬浮操作按钮 (FAB) -->
+    <!-- fa-plus 是自定义的本地图标 -->
+    <button id="showAddModalBtn" class="fab" title="添加新订阅"><i class="fa-solid fa-plus"></i></button>
+
+    <div id="toast-container"></div>
+
+    <!-- 全屏模态视图 -->
+    <div id="modal-view" class="modal-view">
+        <div class="modal-view-header">
+            <!-- fa-arrow-left 是自定义的本地图标 -->
+            <button id="closeModalBtn" class="btn-icon" aria-label="返回"><i class="fa-solid fa-arrow-left"></i></button>
+            <h3 id="modal-title">操作</h3>
+            <button id="saveModalBtn" class="btn btn-primary"><span>保存</span></button>
+        </div>
+        <div class="modal-view-content">
+            <!-- 内容由JS动态填充 -->
+        </div>
+    </div>
+
+    <footer class="page-footer">
+        <p>Crafted with Flask & Aurora-UI ✨</p>
+        <p>A Starry Project by 派大星</p>
+    </footer>
+
+    <!-- 引入完全独立的移动端JS (无需改动) -->
+    <script src="{{ url_for('static', filename='mobile.js') }}"></script>
+</body>
+</html>
